@@ -48,6 +48,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 OWNER_ID = 475160980280705024
 ROLE_ID = 1365076710265192590
 GUILD_ID = 1005186618031869952
+LOG_CHANNEL_ID = 1365381000619622460
 
 # Universal embed notification
 async def send_embed_notification(interaction, title, description, color=discord.Color(0x2f3136)):
@@ -249,7 +250,7 @@ async def giveacces(interaction: discord.Interaction, user: discord.Member, dura
         await interaction.response.send_message("❌ ვადის რიცხვი უნდა იყოს რიცხვითი.", ephemeral=True)
         return
 
-    expiration_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+    expiration_time = datetime.utcnow() + timedelta(seconds=seconds)
 
     try:
         await user.add_roles(role)
@@ -261,7 +262,7 @@ async def giveacces(interaction: discord.Interaction, user: discord.Member, dura
         return
 
     # Save to MongoDB
-    await access_collection.insert_one({
+    await access_roles_collection.insert_one({
         "user_id": user.id,
         "guild_id": home_guild.id,
         "role_id": role.id,
@@ -285,22 +286,20 @@ async def giveacces(interaction: discord.Interaction, user: discord.Member, dura
         )
         await log_channel.send(embed=embed)
 
-@app_commands.command(name="sync", description="განაახლე სლეშ ქომანდები ხელით")
+@bot.tree.command(name="sync", description="განაახლე სლეშ ქომანდები ხელით")
 async def sync_commands(interaction: discord.Interaction):
-    if interaction.user.id != 475160980280705024:  # მხოლოდ Owner-ს შეეძლოს
+    if interaction.user.id != OWNER_ID:
         await interaction.response.send_message("❌ შენ არ გაქვს უფლება ამის გასაკეთებლად.", ephemeral=True)
         return
-
-    await interaction.client.tree.sync()
+    await bot.tree.sync()
     await interaction.response.send_message("✅ სლეშ ქომანდები წარმატებით განახლდა!", ephemeral=True)
 
-bot.tree.add_command(sync_commands)
 
 # Task: Check expired roles
 @tasks.loop(minutes=1)
 async def check_expired_roles():
     now = datetime.utcnow()
-    expired_roles = access_roles_collection.find({"expires_at": {"$lte": now}})
+    expired_roles = access_roles_collection.find({"expiration_time": {"$lte": now}})
     async for entry in expired_roles:
         guild = discord.utils.get(bot.guilds, id=entry["guild_id"])
         if not guild:
