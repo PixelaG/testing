@@ -264,11 +264,12 @@ async def check_expired_roles():
 
 # Bot ready
 @bot.event
+@bot.event
 async def on_ready():
     print(f"✅ Bot connected as {bot.user}")
     await bot.change_presence(status=discord.Status.invisible)
     try:
-        await bot.tree.sync()
+        await bot.tree.sync(guild=None)  # Globally syncs
         print(Fore.GREEN + "✅ Slash commands synced successfully.")
     except Exception as e:
         print(Fore.RED + f"❌ Failed to sync commands: {e}")
