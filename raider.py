@@ -215,20 +215,20 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
 # /giveacces Command
-@bot.tree.command(name="giveaccess", description="Grant temporary role to user")
+@bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი")
 @app_commands.describe(
-    user="The user to grant access to",
-    duration="Duration (e.g., 7d, 12h, 30m)"
+    user="მომხმარებელი",
+    duration="ვადა (მაგ. 7d, 12h, 30m)"
 )
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     try:
-        # Permission check
-        if interaction.user.id != OWNER_ID:
-            return await send_embed(interaction, "⛔ Access Denied", "Only the bot owner can use this command.")
+        # პერმისიების შემოწმება
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("⛔ მხოლოდ ადმინისტრატორებისთვის!", ephemeral=True)
         
         await interaction.response.defer(ephemeral=True)
-
-        # Parse duration
+        
+        # ვადის დამუშავება
         try:
             if duration.endswith('d'):
                 seconds = int(duration[:-1]) * 86400
@@ -237,46 +237,21 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
             elif duration.endswith('m'):
                 seconds = int(duration[:-1]) * 60
             else:
-                return await send_embed(interaction, "❌ Invalid Format", "Please use format like: 7d, 12h, 30m")
+                return await interaction.followup.send("❌ არასწორი ფორმატი. გამოიყენეთ მაგ.: 7d, 12h, 30m")
         except ValueError:
-            return await send_embed(interaction, "❌ Invalid Duration", "Please enter a valid number.")
+            return await interaction.followup.send("❌ არასწორი რიცხვი")
 
-        # Calculate expiration time
-        expiration_time = datetime.utcnow() + timedelta(seconds=seconds)
-
-        # Get role
+        # როლის მინიჭება
         role = interaction.guild.get_role(ROLE_ID)
         if not role:
-            return await send_embed(interaction, "❌ Role Not Found", f"Role with ID {ROLE_ID} doesn't exist.")
+            return await interaction.followup.send(f"❌ როლი ({ROLE_ID}) ვერ მოიძებნა")
 
-        # Add role and log to MongoDB
-        try:
-            await user.add_roles(role)
-            await access_roles_collection.insert_one({
-                "user_id": user.id,
-                "guild_id": interaction.guild.id,
-                "role_id": role.id,
-                "expiration_time": expiration_time
-            })
-        except Exception as e:
-            return await send_embed(interaction, "❌ Database Error", f"Failed to update database: {e}")
-
-        # Send success message
-        await send_embed(interaction, "✅ Success", f"Granted {role.name} to {user.mention} for {duration}")
-
-        # Log to log channel
-        log_channel = bot.get_channel(LOG_CHANNEL_ID)
-        if log_channel:
-            embed = discord.Embed(
-                title="Role Granted",
-                description=f"**User:** {user.mention}\n**Duration:** {duration}",
-                color=discord.Color.green()
-            )
-            await log_channel.send(embed=embed)
+        await user.add_roles(role)
+        await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
 
     except Exception as e:
-        print(f"Error in /giveaccess: {e}")
-        await send_embed(interaction, "❌ Unexpected Error", "An error occurred while processing your request.")
+        print(f"შეცდომა: {e}")
+        await interaction.followup.send(f"❌ შეცდომა: {str(e)}")
 
 # /sync (გასწორებული)
 @bot.tree.command(name="sync", description="Sync slash commands (Owner only)")
@@ -323,14 +298,18 @@ async def check_expired_roles():
 # Bot ready
 @bot.event
 async def on_ready():
-    print(f"Bot is ready! Logged in as {bot.user}")
+    print(f"Bot is ready on {len(bot.guilds)} servers")
     
-    # Sync commands to specific guild
+    # სინქრონიზაცია მხოლოდ მითითებულ სერვერზე
     try:
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f"Synced {len(synced)} commands to guild {GUILD_ID}")
+        
+        # დამატებითი ვალიდაცია
+        commands = await bot.tree.fetch_commands(guild=discord.Object(id=GUILD_ID))
+        print(f"Available commands: {[cmd.name for cmd in commands]}")
     except Exception as e:
-        print(f"Error syncing commands: {e}")
+        print(f"Sync error: {e}")
     
     check_expired_roles.start()
 
