@@ -216,10 +216,6 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
 
 # /giveacces Command
 @bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი")
-@app_commands.describe(
-    user="მომხმარებელი",
-    duration="ვადა (მაგ. 7d, 12h, 30m)"
-)
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     try:
         # პერმისიების შემოწმება
@@ -254,28 +250,27 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         await interaction.followup.send(f"❌ შეცდომა: {str(e)}")
 
 # /sync (გასწორებული)
-@bot.tree.command(name="sync", description="Sync slash commands (Owner only)")
+@bot.tree.command(name="sync", description="Sync slash commands")
+@app_commands.checks.has_permissions(administrator=True)
 async def sync(interaction: discord.Interaction):
     try:
-        if interaction.user.id != OWNER_ID:
-            return await send_embed(interaction, "⛔ Access Denied", "Only the bot owner can use this command.")
-        
         await interaction.response.defer(ephemeral=True)
-        
-        # Sync commands to specific guild
+        # სინქრონიზაცია მხოლოდ მითითებულ სერვერზე
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-        await send_embed(interaction, "✅ Sync Complete", f"Successfully synced {len(synced)} commands.")
-        
+        # დამატებითი ვალიდაცია
+        registered = await bot.tree.fetch_commands(guild=discord.Object(id=GUILD_ID))
+        await interaction.followup.send(
+            f"✅ Synced {len(synced)} commands\n"
+            f"Registered commands: {[cmd.name for cmd in registered]}"
+        )
     except Exception as e:
-        print(f"Error in /sync: {e}")
-        await send_embed(interaction, "❌ Sync Failed", f"Error: {e}")
+        await interaction.followup.send(f"❌ Error: {str(e)}")
 
-# Task: Check expired roles
 @tasks.loop(minutes=5)
 async def check_expired_roles():
     try:
         now = datetime.utcnow()
-        async for entry in access_roles_collection.find({"expiration_time": {"$lte": now}}):
+        async for entry in access_roles_collection.find({"expires_at": {"$lte": now}}):
             guild = bot.get_guild(entry["guild_id"])
             if not guild:
                 continue
@@ -293,7 +288,7 @@ async def check_expired_roles():
                 except Exception as e:
                     print(f"Error removing role: {e}")
     except Exception as e:
-        print(f"Error in check_expired_roles: {e}")
+        print(f"Critical error in check_expired_roles: {e}")
 
 # Bot ready
 @bot.event
