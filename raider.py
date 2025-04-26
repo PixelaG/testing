@@ -216,9 +216,9 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
 # /giveacces Command
-@app_commands.command(name="giveacces", description="მომხმარებელს აძლევს მთავარ სერვერზე როლს განსაზღვრული დროით")
-@app_commands.describe(user="მომხმარებელი ვისაც უნდა როლი მივანიჭოთ", duration="ვადა, მაგ: 14d (დღე), 12h (საათი), ან 30m (წუთი)")
-async def giveacces(interaction: discord.Interaction, user: discord.Member, duration: str):
+@bot.tree.command(name="giveaccess", description="მომხმარებელს აძლევს მთავარ სერვერზე როლს განსაზღვრული დროით")
+@app_commands.describe(user="მომხმარებელი", duration="ვადა (მაგ.: 7d, 12h, 30m)")
+async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     await bot.wait_until_ready()
 
     if interaction.user.id != OWNER_ID:
