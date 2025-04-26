@@ -285,6 +285,17 @@ async def giveacces(interaction: discord.Interaction, user: discord.Member, dura
         )
         await log_channel.send(embed=embed)
 
+@app_commands.command(name="sync", description="განაახლე სლეშ ქომანდები ხელით")
+async def sync_commands(interaction: discord.Interaction):
+    if interaction.user.id != 475160980280705024:  # მხოლოდ Owner-ს შეეძლოს
+        await interaction.response.send_message("❌ შენ არ გაქვს უფლება ამის გასაკეთებლად.", ephemeral=True)
+        return
+
+    await interaction.client.tree.sync()
+    await interaction.response.send_message("✅ სლეშ ქომანდები წარმატებით განახლდა!", ephemeral=True)
+
+bot.tree.add_command(sync_commands)
+
 # Task: Check expired roles
 @tasks.loop(minutes=1)
 async def check_expired_roles():
@@ -305,13 +316,12 @@ async def check_expired_roles():
 # Bot ready
 @bot.event
 async def on_ready():
-    print(f"✅ Bot connected as {bot.user}")
-    await bot.change_presence(status=discord.Status.invisible)
+    print(f"ბოტი ჩართულია როგორც {bot.user} ✅")
     try:
-        await bot.tree.sync(guild=None)  # Globally syncs
-        print(Fore.GREEN + "✅ Slash commands synced successfully.")
+        synced = await bot.tree.sync()
+        print(f"🔥 {len(synced)} სლეშ ქომანდი განახლდა!")
     except Exception as e:
-        print(Fore.RED + f"❌ Failed to sync commands: {e}")
+        print(f"❌ ქომანდების განახლების შეცდომა: {e}")
     
     check_expired_roles.start()
 
