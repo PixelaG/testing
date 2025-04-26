@@ -42,6 +42,7 @@ intents.messages = True
 intents.message_content = True
 intents.typing = False
 intents.presences = False
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -216,26 +217,15 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
 # /giveacces Command
-@bot.tree.command(name="giveaccess", description="მომხმარებელს აძლევს მთავარ სერვერზე როლს განსაზღვრული დროით")
+@bot.tree.command(name="giveaccess", description="მომხმარებელს აძლევს როლს დროებით")
 @app_commands.describe(user="მომხმარებელი", duration="ვადა (მაგ.: 7d, 12h, 30m)")
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
-    await bot.wait_until_ready()
-
     if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("⛔️ მხოლოდ Owner-ს შეუძლია ამ ბრძანების გამოყენება.", ephemeral=True)
-        return
+        return await interaction.response.send_message("⛔ Owner Only!", ephemeral=True)
+    
+    await interaction.response.defer(ephemeral=True)
 
-    home_guild = discord.utils.get(bot.guilds, id=GUILD_ID)
-    if not home_guild:
-        await interaction.response.send_message("❌ მთავარი სერვერი ვერ მოიძებნა.", ephemeral=True)
-        return
-
-    role = home_guild.get_role(ROLE_ID)
-    if not role:
-        await interaction.response.send_message("❌ მთავარი როლი ვერ მოიძებნა.", ephemeral=True)
-        return
-
-    # Calculate duration in seconds
+    # ვადის გამოთვლა
     try:
         if duration.endswith('d'):
             seconds = int(duration[:-1]) * 86400
@@ -244,84 +234,89 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         elif duration.endswith('m'):
             seconds = int(duration[:-1]) * 60
         else:
-            await interaction.response.send_message("❌ არასწორი ვადის ფორმატი. გამოიყენეთ მაგალითები: 14d, 12h ან 30m.", ephemeral=True)
-            return
+            return await interaction.followup.send("❌ Invalid format. Use: 7d, 12h, 30m")
     except ValueError:
-        await interaction.response.send_message("❌ ვადის რიცხვი უნდა იყოს რიცხვითი.", ephemeral=True)
-        return
+        return await interaction.followup.send("❌ Numbers only (e.g., 7d).")
 
     expiration_time = datetime.utcnow() + timedelta(seconds=seconds)
 
+    # როლის მინიჭება
+    role = interaction.guild.get_role(ROLE_ID)
+    if not role:
+        return await interaction.followup.send("❌ Role not found.")
+
     try:
         await user.add_roles(role)
-    except discord.Forbidden:
-        await interaction.response.send_message("🚫 ბოტს არ აქვს საკმარისი უფლება როლის დასამატებლად.", ephemeral=True)
-        return
-    except discord.HTTPException as e:
-        await interaction.response.send_message(f"❌ შეცდომა როლის დამატებისას: {e}", ephemeral=True)
-        return
+        await access_roles_collection.insert_one({
+            "user_id": user.id,
+            "guild_id": interaction.guild.id,
+            "role_id": role.id,
+            "expiration_time": expiration_time
+        })
+    except Exception as e:
+        return await interaction.followup.send(f"❌ Error: {e}")
 
-    # Save to MongoDB
-    await access_roles_collection.insert_one({
-        "user_id": user.id,
-        "guild_id": home_guild.id,
-        "role_id": role.id,
-        "expiration_time": expiration_time
-    })
-
-    await interaction.response.send_message(f"✅ {user.mention}-ს მიენიჭა როლი {duration}-ით.", ephemeral=True)
-
-    # Send log to a specific channel
+    # ლოგები
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
         embed = discord.Embed(
-            title="🎟️ როლის მინიჭება",
-            description=(
-                f"**მომხმარებელი:** {user.mention}\n"
-                f"**ვადა:** {duration}\n"
-                f"**ვადის ამოწურვა:** <t:{int(expiration_time.timestamp())}:R>\n"
-                f"**მინიჭებულია მიერ:** {interaction.user.mention}"
-            ),
+            title="🎟️ Role Added",
+            description=f"User: {user.mention}\nDuration: {duration}",
             color=discord.Color.green()
         )
         await log_channel.send(embed=embed)
 
-@bot.tree.command(name="sync", description="განაახლე სლეშ ქომანდები ხელით")
-async def sync_commands(interaction: discord.Interaction):
-    if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ შენ არ გაქვს უფლება ამის გასაკეთებლად.", ephemeral=True)
-        return
-    await bot.tree.sync()
-    await interaction.response.send_message("✅ სლეშ ქომანდები წარმატებით განახლდა!", ephemeral=True)
+    await interaction.followup.send(f"✅ {user.mention} received the role for {duration}!")
 
+# /sync (გასწორებული)
+@bot.tree.command(name="sync", description="Sync slash commands (Owner Only)")
+async def sync(interaction: discord.Interaction):
+    if interaction.user.id != OWNER_ID:
+        return await interaction.response.send_message("❌ Owner only!", ephemeral=True)
+    
+    await interaction.response.defer(ephemeral=True)
+    try:
+        # სინქრონიზაცია მხოლოდ მითითებულ სერვერზე (Rate Limit-ის თავიდან ასაცილებლად)
+        synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        await interaction.followup.send(f"✅ Synced {len(synced)} commands!")
+    except discord.HTTPException as e:
+        await interaction.followup.send(f"❌ Failed to sync: {e}")
 
 # Task: Check expired roles
-@tasks.loop(minutes=1)
+@tasks.loop(minutes=5)
 async def check_expired_roles():
     now = datetime.utcnow()
-    expired_roles = access_roles_collection.find({"expiration_time": {"$lte": now}})
-    async for entry in expired_roles:
-        guild = discord.utils.get(bot.guilds, id=entry["guild_id"])
+    async for entry in access_roles_collection.find({"expiration_time": {"$lte": now}}):
+        guild = bot.get_guild(entry["guild_id"])
         if not guild:
             continue
-        try:
-            member = await guild.fetch_member(entry["user_id"])
-            await member.remove_roles(discord.Object(id=entry["role_id"]))
-            await access_roles_collection.delete_one({"_id": entry["_id"]})
-            print(Fore.YELLOW + f"🔄 როლი ჩამოერთვა {member} -ს ვადის გასვლის გამო.")
-        except Exception as e:
-            print(Fore.RED + f"⚠️ შეცდომა role remove-ში: {e}")
+
+        user = guild.get_member(entry["user_id"])
+        if not user:
+            continue
+
+        role = guild.get_role(entry["role_id"])
+        if role:
+            try:
+                await user.remove_roles(role)
+                await access_roles_collection.delete_one({"_id": entry["_id"]})
+                print(f"Removed role from {user.name}")
+            except Exception as e:
+                print(f"Error removing role: {e}")
 
 # Bot ready
 @bot.event
 async def on_ready():
-    print(f"ბოტი ჩართულია როგორც {bot.user} ✅")
-    try:
-        synced = await bot.tree.sync()
-        print(f"🔥 {len(synced)} სლეშ ქომანდი განახლდა!")
-    except Exception as e:
-        print(f"❌ ქომანდების განახლების შეცდომა: {e}")
+    print(f"Logged in as {bot.user}")
     
+    # სინქრონიზაცია მხოლოდ ერთხელ, სპეციფიკურ სერვერზე
+    try:
+        synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        print(f"Synced {len(synced)} commands to guild {GUILD_ID}")
+    except Exception as e:
+        print(f"Sync error: {e}")
+
+
     check_expired_roles.start()
 
 # Run bot
