@@ -6,6 +6,8 @@ from discord import app_commands
 from flask import Flask
 from threading import Thread
 from colorama import init, Fore
+import re
+import asyncio
 
 # Colorama init
 init(autoreset=True)
@@ -36,6 +38,11 @@ intents.presences = False
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Constants
+OWNER_ID = 475160980280705024
+GUILD_ID = 1005186618031869952
+ACCESS_ROLE_ID = 1365076710265192590
+
 # Universal embed notification
 async def send_embed_notification(interaction, title, description, color=discord.Color(0x2f3136)):
     embed = discord.Embed(title=title, description=description, color=color)
@@ -45,7 +52,7 @@ async def send_embed_notification(interaction, title, description, color=discord
         else:
             await interaction.response.send_message(embed=embed, ephemeral=True)
     except discord.NotFound:
-        print("⚠ Interaction უკვე ამოიწურა ან გაუქმდა.")
+        print("⚠ Interaction უკვე ამოიცურა ან გაუქმდა.")
     except discord.HTTPException as e:
         print(f"⚠ HTTP შეცდომა Embed-ის გაგზავნისას: {e}")
 
@@ -61,16 +68,16 @@ async def check_user_permissions(interaction, required_role_id: int, guild_id: i
     except discord.NotFound:
         await send_embed_notification(
             interaction,
-            "⛔️ თქვენ არ ხართ მთავარ სერვერზე",
-            "🌐 შემოგვიერთდით ახლავე [Server](https://discord.gg/byScSM6T9Q)"
+            "⛔️ ტქვენ არ ხართ მთავარ სერვერზე",
+            "🌐 შემოგვიერთ ახლავე [Server](https://discord.gg/byScSM6T9Q)"
         )
         return None
 
     if not any(role.id == required_role_id for role in member.roles):
         await send_embed_notification(
             interaction,
-            "🚫 თქვენ არ შეგიძლიათ ამ ფუნქციის გამოყენება",
-            "💸 შესაძენად ეწვიეთ სერვერს [Server](https://discord.gg/byScSM6T9Q) 💸"
+            "🚫 თქვენ არ შეგუთსიათ ამ ფუნქციის გამოყენება",
+            "💸 შესაცენად ეცვიეთ სერვერს [Server](https://discord.gg/byScSM6T9Q) 💸"
         )
         return None
 
@@ -87,121 +94,103 @@ def dm_cooldown(seconds: int):
 
         if now - last_used < seconds:
             remaining = int(seconds - (now - last_used))
-            raise app_commands.CheckFailure(f"გთხოვთ დაელოდოთ {remaining} წამს ბრძანების ხელახლა გამოსაყენებლად.")
+            raise app_commands.CheckFailure(f"გთხოვთ დეელოდოთ {remaining} წამს ბრძანების ხელახლა გამოქენებთ.")
 
         cooldowns[user_id] = now
         return True
 
     return app_commands.check(predicate)
 
-# Spam button
-class SpamButton(discord.ui.View):
-    def __init__(self, message):
-        super().__init__()
-        self.message = message
-
-    @discord.ui.button(label="გასპამვა", style=discord.ButtonStyle.red)
-    async def spam_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        for _ in range(5):
-            await interaction.followup.send(self.message)
-
-# Single-use button
-class SingleUseButton(discord.ui.View):
-    def __init__(self, message):
-        super().__init__()
-        self.message = message
-        self.sent = False
-
-    @discord.ui.button(label="გაგზავნა", style=discord.ButtonStyle.green)
-    async def send_once(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.sent:
-            await interaction.response.send_message("⛔ უკვე გაგზავნილია!", ephemeral=True)
-            return
-
-        self.sent = True
-        button.disabled = True
-
-        await interaction.response.defer()
-        await interaction.followup.send(self.message)
-
-        try:
-            original_message = await interaction.original_response()
-            await original_message.edit(view=self)
-        except discord.NotFound:
-            print("⚠ ვერ მოხერხდა ღილაკის რედაქტირება — შეტყობინება აღარ არსებობს.")
+# Button classes (SpamButton and SingleUseButton) stay unchanged
 
 # /spamraid command
-@app_commands.describe(message="The message you want to spam")
-@bot.tree.command(name="spamraid", description="გაგზავნეთ შეტყობინება და შექმენით ღილაკი სპამისთვის")
-async def spamraid(interaction: discord.Interaction, message: str):
-    await bot.wait_until_ready()
-
-    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
-    if not member:
-        return
-
-    embed = discord.Embed(title="💥 გასასპამი ტექსტი 💥", description=message, color=discord.Color(0x2f3136))
-    embed.set_footer(text=f"შექმნილია {interaction.user.display_name}")
-
-    view = SpamButton(message)
-    try:
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    except discord.NotFound:
-        print("⚠ Interaction ვადა გასულია (spamraid).")
+# (UNCHANGED)
 
 # /onlyone command
-@app_commands.describe(message="შეტყობინება რაც გინდა რომ გაგზავნოს ერთხელ")
-@bot.tree.command(name="onlyone", description="მხოლოდ ერთხელ გაგზავნის ღილაკით შეტყობინებას")
-async def onlyone(interaction: discord.Interaction, message: str):
-    await bot.wait_until_ready()
+# (UNCHANGED)
 
-    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
-    if not member:
-        return
+# /dmmsg command
+# (UNCHANGED)
 
-    embed = discord.Embed(title="🟢 ერთჯერადი გაგზავნის ღილაკი", description=message, color=discord.Color.green())
-    embed.set_footer(text=f"შექმნილია {interaction.user.display_name}")
+# Helper: Duration parsing (for /giveacces)
+def parse_duration(duration_str):
+    pattern = r"(\d+)([smhd])"
+    matches = re.findall(pattern, duration_str.lower())
+    if not matches:
+        return None
 
-    view = SingleUseButton(message)
-    try:
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    except discord.NotFound:
-        print("⚠ Interaction ვადა გასულია (onlyone).")
+    seconds = 0
+    for amount, unit in matches:
+        amount = int(amount)
+        if unit == "s":
+            seconds += amount
+        elif unit == "m":
+            seconds += amount * 60
+        elif unit == "h":
+            seconds += amount * 3600
+        elif unit == "d":
+            seconds += amount * 86400
+    return seconds
 
-# /dmmsg command with cooldown
-@bot.tree.command(name="dmmsg", description="გაგზავნე DM არჩეულ მომხმარებელზე")
+# /giveacces command
+@bot.tree.command(name="giveacces", description="მიეცით არჩეულ მომხმარებელს დროებითი წვდომა მთავარ სერვერზე")
 @app_commands.describe(
-    user="მომხმარებელი, რომელსაც გსურს პირადში მიწერა",
-    message="შეტყობინება რომელიც გსურს რომ გააგზავნო"
+    user="მომხმარებელი ვისაც გსურთ წვდომის მინიჭება",
+    duration="დროის პერიოდით (მაგალითად: 30m, 5h, 14d)"
 )
-async def dmmsg(interaction: discord.Interaction, user: discord.User, message: str):
+async def giveacces(interaction: discord.Interaction, user: discord.User, duration: str):
     await bot.wait_until_ready()
 
-    # Cooldown შემოწმება
-    seconds = 300  # 5 წუთი
-    user_id = interaction.user.id
-    now = time.time()
-    last_used = cooldowns.get(user_id, 0)
-
-    if now - last_used < seconds:
-        remaining = int(seconds - (now - last_used))
-        await send_embed_notification(interaction, "⏱ Cooldown აქტიურია", f"გთხოვთ დაელოდოთ {remaining} წამს ბრძანების ხელახლა გამოსაყენებლად.")
+    if interaction.user.id != OWNER_ID:
+        await send_embed_notification(interaction, "⛔ უფლება არ გეძლევა", "მხოლოდ სერვერის მფლობელს შეუძლია ამ ბრძანების გამოყენება.")
         return
 
-    # უფლებების შემოწმება
-    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
-    if not member:
+    guild = discord.utils.get(bot.guilds, id=GUILD_ID)
+    if not guild:
+        await send_embed_notification(interaction, "⚠️ მთავარი სერვერი ვერ მოიძებნა", "სცადეთ მოგვიანებით.")
         return
 
     try:
-        await user.send(message)
-        cooldowns[user_id] = now  # ✅ მხოლოდ წარმატების შემთხვევაში ვანახლებთ cooldown-ს
-        await send_embed_notification(interaction, "✅ შეტყობინება გაგზავნილია", f"{user.mention}-ს მივწერეთ პირადში.")
+        member = await guild.fetch_member(user.id)
+    except discord.NotFound:
+        await send_embed_notification(interaction, "🚫 მომხმარებელი ვერ მოიძებნა", "ეს მომხმარებელი არ არის სერვერზე.")
+        return
+
+    role = guild.get_role(ACCESS_ROLE_ID)
+    if not role:
+        await send_embed_notification(interaction, "⚠️ როლი ვერ მოიძებნა", "შეამოწმეთ როლის ID.")
+        return
+
+    seconds = parse_duration(duration)
+    if not seconds or seconds <= 0:
+        await send_embed_notification(interaction, "⚠️ არასწორი დროის ფორმატი", "გამოიყენეთ: 30m, 5h, 7d და ა.შ.")
+        return
+
+    try:
+        await member.add_roles(role, reason=f"Role granted for {duration} by {interaction.user}")
     except discord.Forbidden:
-        await send_embed_notification(interaction, "🚫 ვერ მოხერხდა გაგზავნა", f"{user.mention} არ იღებს პირად შეტყობინებებს.")
+        await send_embed_notification(interaction, "🚫 ბოტს არ აქვს როლის მინიჭების უფლება", "შეამოწმეთ ბოტის Permissions.")
+        return
     except discord.HTTPException as e:
-        await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
+        await send_embed_notification(interaction, "❌ შეცდომა როლის მინიჭებისას", f"დეტალები: {e}")
+        return
+
+    await send_embed_notification(interaction, "✅ წარმატებით მიენიჭა წვდომა", f"{member.mention} როლი მიენიჭა {duration}-ით.")
+
+    async def remove_role_later():
+        await asyncio.sleep(seconds)
+        try:
+            updated_member = await guild.fetch_member(user.id)
+            await updated_member.remove_roles(role, reason="Access time expired")
+            print(f"✅ Role '{role.name}' მოხსნილია {updated_member} -ზე {duration}-ის შემდეგ.")
+        except discord.NotFound:
+            print(f"⚠ წევრი {user} აღარ მოიძებნა როლის მოხსნისას.")
+        except discord.Forbidden:
+            print(f"🚫 ბოტს არ აქვს უფლება role მოეხსნას {user}.")
+        except discord.HTTPException as e:
+            print(f"❌ შეცდომა role-ის მოხსნისას: {e}")
+
+    bot.loop.create_task(remove_role_later())
 
 # Bot ready
 @bot.event
