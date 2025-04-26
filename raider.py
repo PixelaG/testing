@@ -216,11 +216,17 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
 
 # /giveacces Command
 @bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი")
+@app_commands.describe(
+    user="მომხმარებელი რომელსაც უნდა მიანიჭოთ როლი",
+    duration="ვადა (მაგ. 1d, 12h, 30m)"
+)
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     try:
+        await interaction.response.defer(ephemeral=True)
+        
         # პერმისიების შემოწმება
         if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("⛔ მხოლოდ ადმინისტრატორებისთვის!", ephemeral=True)
+            return await interaction.followup.send("⛔ მხოლოდ ადმინისტრატორებისთვის!", ephemeral=True)
         
         await interaction.response.defer(ephemeral=True)
         
@@ -237,17 +243,21 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         except ValueError:
             return await interaction.followup.send("❌ არასწორი რიცხვი")
 
-        # როლის მინიჭება
         role = interaction.guild.get_role(ROLE_ID)
         if not role:
-            return await interaction.followup.send(f"❌ როლი ({ROLE_ID}) ვერ მოიძებნა")
-
+            return await interaction.followup.send(f"❌ როლი ვერ მოიძებნა (ID: {ROLE_ID})")
+        
         await user.add_roles(role)
         await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
-
+        
+        # ლოგირება
+        await log_to_channel(
+            f"{interaction.user.mention} მიუძღვნა {role.name} {user.mention}-ს {duration}-ით"
+        )
+        
     except Exception as e:
-        print(f"შეცდომა: {e}")
         await interaction.followup.send(f"❌ შეცდომა: {str(e)}")
+        print(f"Error in giveaccess: {e}")
 
 # /sync (გასწორებული)
 @bot.tree.command(name="sync", description="Sync slash commands")
@@ -295,14 +305,16 @@ async def check_expired_roles():
 async def on_ready():
     print(f"Bot is ready on {len(bot.guilds)} servers")
     
-    # სინქრონიზაცია მხოლოდ მითითებულ სერვერზე
     try:
-        synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-        print(f"Synced {len(synced)} commands to guild {GUILD_ID}")
+        # სინქრონიზაცია მხოლოდ კონკრეტულ სერვერზე
+        guild = discord.Object(id=GUILD_ID)
+        await bot.tree.sync(guild=guild)
         
-        # დამატებითი ვალიდაცია
-        commands = await bot.tree.fetch_commands(guild=discord.Object(id=GUILD_ID))
-        print(f"Available commands: {[cmd.name for cmd in commands]}")
+        # ბრძანებების ხელახლა ჩატვირთვა
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        
+        print(f"Synced {len(synced)} commands: {[cmd.name for cmd in synced]}")
     except Exception as e:
         print(f"Sync error: {e}")
     
