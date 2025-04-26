@@ -215,64 +215,49 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
 # /giveacces Command
-@bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი მომხმარებელს")
+@bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი")
 @app_commands.describe(
-    user="მომხმარებელი რომელსაც უნდა მიანიჭოთ როლი",
-    duration="ვადა (მაგალითად: 1d, 12h, 30m)"
+    user="მომხმარებელი",
+    duration="ვადა (მაგ. 1d, 12h, 30m)"
 )
-@app_commands.checks.has_permissions(manage_roles=True)
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
-    """დროებითი როლის მინიჭების ბრძანება"""
-    
     try:
-        # დაყოვნებული პასუხი
-        await interaction.response.defer(ephemeral=True)
-        
-        # როლის მოძებნა
-        role = interaction.guild.get_role(ROLE_ID)
-        if not role:
-            return await interaction.followup.send("❌ როლი ვერ მოიძებნა", ephemeral=True)
+        await interaction.response.defer()
         
         # ვადის დამუშავება
-        try:
-            if duration.endswith('d'):
-                hours = int(duration[:-1]) * 24
-            elif duration.endswith('h'):
-                hours = int(duration[:-1])
-            elif duration.endswith('m'):
-                hours = int(duration[:-1]) / 60
-            else:
-                return await interaction.followup.send("❌ არასწორი ფორმატი. გამოიყენეთ: 1d, 12h ან 30m", ephemeral=True)
-            
-            if hours <= 0:
-                return await interaction.followup.send("❌ ვადა უნდა იყოს 0-ზე მეტი", ephemeral=True)
-                
-        except ValueError:
-            return await interaction.followup.send("❌ არასწორი რიცხვითი მნიშვნელობა", ephemeral=True)
+        if duration.endswith('d'):
+            hours = int(duration[:-1]) * 24
+        elif duration.endswith('h'):
+            hours = int(duration[:-1])
+        elif duration.endswith('m'):
+            hours = int(duration[:-1]) / 60
+        else:
+            return await interaction.followup.send("❌ არასწორი ფორმატი. გამოიყენეთ: 1d, 12h ან 30m")
         
-        # როლის მინიჭება
-        try:
-            await user.add_roles(role)
-            await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
+        expires_at = datetime.utcnow() + timedelta(hours=hours)
+        
+        # როლის მინიჭება და MongoDB-ში შენახვა
+        role = interaction.guild.get_role(ROLE_ID)
+        if not role:
+            return await interaction.followup.send("❌ როლი ვერ მოიძებნა")
             
-            # ლოგირება
-            log_channel = bot.get_channel(LOG_CHANNEL_ID)
-            if log_channel:
-                embed = discord.Embed(
-                    title="როლის მინიჭება",
-                    description=f"**მომხმარებელი:** {user.mention}\n**ვადა:** {duration}\n**მინიჭებულია:** {interaction.user.mention}",
-                    color=discord.Color.green()
-                )
-                await log_channel.send(embed=embed)
-                
-        except discord.Forbidden:
-            await interaction.followup.send("❌ ბოტს არ აქვს საკმარისი უფლებები", ephemeral=True)
-        except discord.HTTPException as e:
-            await interaction.followup.send(f"❌ შეცდომა როლის მინიჭებისას: {e}", ephemeral=True)
-            
+        await user.add_roles(role)
+        
+        # მონაცემების ჩაწერა MongoDB-ში
+        await access_roles_collection.insert_one({
+            "user_id": user.id,
+            "guild_id": interaction.guild.id,
+            "role_id": role.id,
+            "expires_at": expires_at,
+            "assigned_by": interaction.user.id,
+            "assigned_at": datetime.utcnow()
+        })
+        
+        await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
+        
     except Exception as e:
-        print(f"მოულოდნელი შეცდომა: {e}")
-        await interaction.followup.send("❌ მოულოდნელი შეცდომა", ephemeral=True)
+        await interaction.followup.send(f"❌ შეცდომა: {str(e)}")
+        print(f"Error in giveaccess: {e}")
 
 @tasks.loop(minutes=5)
 async def check_expired_roles():
