@@ -70,7 +70,7 @@ async def check_expired_roles():
                         log_channel = guild.get_channel(entry["log_channel_id"])
                         if log_channel:
                             expired_embed = discord.Embed(
-                                title="⏰ დაკარგა ამოიღო ",
+                                title="⏰ დაკარგა წვდომა ",
                                 description=f"{member.mention}-ს აღარ აქვს {role.name} როლი",
                                 color=discord.Color.red()
                             )
@@ -154,15 +154,31 @@ def dm_cooldown(seconds: int):
 
 # Spam button
 class SpamButton(discord.ui.View):
-    def __init__(self, message):
-        super().__init__()
-        self.message = message
+    def __init__(self, message: str):
+        super().__init__(timeout=180)
+        self.message_content = message
+        self.last_clicked = {}
 
-    @discord.ui.button(label="გასპამვა", style=discord.ButtonStyle.red)
-    async def spam_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
+    @discord.ui.button(label="გასპამვა", style=discord.ButtonStyle.danger)
+    async def spam(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user_id = interaction.user.id
+        now = time.time()
+
+        last_time = self.last_clicked.get(user_id, 0)
+
+        if now - last_time < 3:
+            await interaction.response.send_message(
+                "გთხოვთ დაელოდოთ 3 წამი სანამ ისევ დააჭერთ.", 
+                ephemeral=True
+            )
+            return
+
+        self.last_clicked[user_id] = now
+
+        await interaction.response.defer(thinking=False)
+
         for _ in range(5):
-            await interaction.followup.send(self.message)
+            await interaction.followup.send(self.message_content)
 
 # Single-use button
 class SingleUseButton(discord.ui.View):
@@ -362,12 +378,20 @@ async def giveaccess(interaction: discord.Interaction, user: discord.User, durat
             inline=False
         )
         log_embed.set_thumbnail(url=target_member.display_avatar.url)
-        log_embed.set_footer(text=f"ID: {target_member.id} | MongoDB Entry ID: {access_entry['_id']}")
+        log_embed.set_footer(text=f"ID: {target_member.id}")
 
         # ლოგის არხში გაგზავნა
         log_channel = target_guild.get_channel(LOG_CHANNEL_ID)
         if log_channel:
             await log_channel.send(embed=log_embed)
+
+    # პასუხი მომხმარებელს (Owner-ს)
+        await send_embed_notification(
+            interaction,
+            "✅ წვდომა მინიჭებულია",
+            f"{target_member.mention}-ს მიენიჭა {access_role.name} როლი {duration}-ის განმავლობაში.\n"
+            f"ვადა გაუვა: <t:{int(expiry_time.timestamp())}:R>"
+        )
     
     except discord.Forbidden:
         await send_embed_notification(interaction, "❌ უფლებები არ არის", "ბოტს არ აქვს საკმარისი უფლებები")
