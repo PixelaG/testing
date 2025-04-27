@@ -30,6 +30,8 @@ def keep_alive():
 
 keep_alive()
 
+mongo_uri = os.getenv("MONGO_URI") 
+
 # MongoDB კავშირი
 client = MongoClient(mongo_uri)
 db = client["discord_bot"]  # MongoDB მონაცემთა ბაზა
