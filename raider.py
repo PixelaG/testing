@@ -298,9 +298,6 @@ async def invisibletext(interaction: discord.Interaction):
         # Reply-ება "followup"-ით
         await interaction.followup.send(content=message, ephemeral=False)
 
-    except discord.HTTPException as e:
-        pass 
-
     except Exception as e:
         print(f"❌ ზოგადი შეცდომა: {e}")
 
