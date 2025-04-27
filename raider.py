@@ -368,14 +368,6 @@ async def giveaccess(interaction: discord.Interaction, user: discord.User, durat
         log_channel = target_guild.get_channel(LOG_CHANNEL_ID)
         if log_channel:
             await log_channel.send(embed=log_embed)
-        
-        # პასუხი მომხმარებელს (Owner-ს)
-        await send_embed_notification(
-            interaction,
-            "✅ წვდომა მინიჭებულია",
-            f"{target_member.mention}-ს მიენიჭა {access_role.name} როლი {duration}-ის განმავლობაში.\n"
-            f"ვადა გაუვა: <t:{int(expiry_time.timestamp())}:R>"
-        )
     
     except discord.Forbidden:
         await send_embed_notification(interaction, "❌ უფლებები არ არის", "ბოტს არ აქვს საკმარისი უფლებები")
