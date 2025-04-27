@@ -278,7 +278,7 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
 
-@bot.tree.command(name="invisibletext", description="გააქრო ჩატი ერთი დიდი უხილავი შეტყობინებით")
+@bot.tree.command(name="invisibletext", description="გააქრო ჩატი დიდი უხილავი ტექსტით")
 async def invisibletext(interaction: discord.Interaction):
     await bot.wait_until_ready()
 
@@ -292,11 +292,11 @@ async def invisibletext(interaction: discord.Interaction):
     message = (invisible_char + "\n") * line_count
 
     try:
-        # უპასუხეთ მომხმარებელს ჩუმად (ephemeral=True)
-        await interaction.response.send_message("✅ მზადაა!", ephemeral=True)
+        # უპასუხეთ Interaction-ზე
+        await interaction.response.defer(ephemeral=True)  # ვეუბნებით რომ "processing" არის, ჩუმად
 
-        # ბოტმა გამოაგზავნოს უხილავი ტექსტი საჯაროდ
-        await interaction.channel.send(message)
+        # შემდეგ ვაგზავნით საჯარო შეტყობინებას
+        await interaction.followup.send(message)
 
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
