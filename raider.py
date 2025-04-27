@@ -212,7 +212,7 @@ class InvisibleButton(View):
 
     @discord.ui.button(label="👁️ ნახვა", style=discord.ButtonStyle.green)
     async def invisible_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # პასუხის გაგზავნა
+        # პასუხი მხოლოდ იმ ადამიანს
         await interaction.response.send_message("თქვენ დააჭირეთ ღილაკს!", ephemeral=True)
 
 # /spamraid command
@@ -293,8 +293,8 @@ async def invisibletext(interaction: discord.Interaction):
     await bot.wait_until_ready()
 
     try:
-        # Interaction-ზე ვპასუხობთ ჩუმად, რომელსაც მხოლოდ user ნახავს
-        response = await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
+        # Interaction-ზე ვპასუხობთ ჩუმად, რომელიც მხოლოდ user-ს გამოჩნდება
+        response = await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=False)
 
         # ვიღებთ არხს სადაც უნდა დავწეროთ
         channel = interaction.channel
@@ -308,8 +308,8 @@ async def invisibletext(interaction: discord.Interaction):
         view = InvisibleButton()  # ღილაკის დამატება
         await interaction.followup.send(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება. დააჭირეთ ღილაკს.", view=view)
 
-        # Send the invisible message
-        await interaction.followup.send(content=message, ephemeral=True)
+        # უნიკალური შეტყობინება ყველასთვის (უხილავი)
+        await interaction.followup.send(content=message, ephemeral=False)
 
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
