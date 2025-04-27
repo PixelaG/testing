@@ -51,6 +51,16 @@ ROLE_ID = 1365076710265192590
 GUILD_ID = 1005186618031869952
 LOG_CHANNEL_ID = 1365381000619622460
 
+async def log_to_channel(guild: discord.Guild, message: str):
+    try:
+        channel = guild.get_channel(LOG_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(
+                title="როლის მინიჭება",
+                description=message,
+                color=discord.Color.green()
+            )
+
 # Universal embed notification
 async def send_embed(interaction, title, description, color=discord.Color(0x2f3136)):
     embed = discord.Embed(title=title, description=description, color=color)
@@ -222,7 +232,11 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
 )
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     try:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
+        
+        role = interaction.guild.get_role(ROLE_ID)
+        if not role:
+            return await interaction.followup.send("❌ როლი ვერ მოიძებნა", ephemeral=True)
         
         # ვადის დამუშავება
         if duration.endswith('d'):
@@ -236,21 +250,15 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         
         expires_at = datetime.utcnow() + timedelta(hours=hours)
         
-        # როლის მინიჭება და MongoDB-ში შენახვა
-        role = interaction.guild.get_role(ROLE_ID)
-        if not role:
-            return await interaction.followup.send("❌ როლი ვერ მოიძებნა", ephemeral=True)
-            
-        await user.add_roles(role)
-        
-        # მონაცემების ჩაწერა MongoDB-ში
         await access_roles_collection.insert_one({
             "user_id": user.id,
             "guild_id": interaction.guild.id,
-            "role_id": role.id,
-            "expires_at": expires_at
+            "role_id": ROLE_ID,
+            "expires_at": expires_at,
+            "assigned_at": datetime.utcnow()
         })
         
+        await user.add_roles(role)
         await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
 
             # ლოგირება
@@ -261,11 +269,6 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
             f"**ვადა:** {duration}\n"
             f"**მინიჭებულია:** {interaction.user.mention}"
         )
-        
-    except Exception as e:
-        error_msg = f"❌ შეცდომა: {str(e)}"
-        await interaction.followup.send(error_msg, ephemeral=True)
-        print(f"Error in giveaccess: {e}")
 
 @tasks.loop(minutes=5)
 async def check_expired_roles():
