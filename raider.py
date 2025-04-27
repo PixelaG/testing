@@ -7,6 +7,7 @@ from flask import Flask
 from threading import Thread
 from colorama import init, Fore
 from datetime import datetime, timedelta
+from pymongo import MongoClient 
 import asyncio
 
 # Colorama init
@@ -28,6 +29,11 @@ def keep_alive():
     thread.start()
 
 keep_alive()
+
+# MongoDB კავშირი
+client = MongoClient(MONGO_URI)
+db = client["discord_bot"]  # MongoDB მონაცემთა ბაზა
+access_entries = db["access_entries"]  # MongoDB კოლექცია
 
 # Discord bot setup
 intents = discord.Intents.default()
