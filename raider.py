@@ -64,18 +64,22 @@ async def log_to_channel(guild: discord.Guild, message: str):
 
 # Universal embed notification
 async def send_embed(interaction, title, description, color=discord.Color(0x2f3136)):
-    embed = discord.Embed(title=title, description=description, color=color)
+    """Embed-ის გაგზავნის უნივერსალური ფუნქცია"""
     try:
+        embed = discord.Embed(title=title, description=description, color=color)
+        
+        # შეამოწმეთ interaction-ის სტატუსი
         if interaction.response.is_done():
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message(embed=embed, ephemeral=True)
+            
     except discord.NotFound:
-        print("⚠ Interaction უკვე ამოიწურა ან გაუქმდა.")
+        print(f"⚠ Interaction not found (სერვერი: {interaction.guild.name}, მომხმარებელი: {interaction.user})")
     except discord.HTTPException as e:
-        print(f"⚠ HTTP შეცდომა Embed-ის გაგზავნისას: {e}")
+        print(f"⚠ HTTP Error (Status: {e.status}): {e.text}")
     except Exception as e:
-        print(f"⚠ მოულოდნელი შეცდომა: {e}")
+        print(f"⚠ Unexpected error in send_embed: {type(e).__name__}: {e}")
 
 # Helper: Check permissions
 async def check_user_permissions(interaction, required_role_id: int, guild_id: int):
