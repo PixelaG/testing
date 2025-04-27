@@ -287,8 +287,8 @@ async def invisibletext(interaction: discord.Interaction):
         # Interaction-ზე ვპასუხობთ ჩუმად, რომელსაც მხოლოდ user ნახავს
         await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
 
-        # ვიღებთ არხს სადაც უნდა დავწეროთ
-        channel = interaction.channel
+        # დაველოდოთ პატარა დრო
+        await asyncio.sleep(1)  # 1 წამი, რომ Discord-ს დრო ჰქონდეს პროცესის დასასრულებლად
 
         # ახლა ვReply-ებთ ჩვენს "✅" შეტყობინებას
         invisible_char = "\u200B"  # უხილავი სიმბოლო
