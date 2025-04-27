@@ -205,6 +205,18 @@ class SingleUseButton(discord.ui.View):
         except discord.NotFound:
             print("⚠ ვერ მოხერხდა ღილაკის რედაქტირება — შეტყობინება აღარ არსებობს.")
 
+class InvisibleButton(View):
+    def __init__(self):
+        super().__init__()
+
+    @discord.ui.button(label="Reply", style=discord.ButtonStyle.primary)
+    async def reply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # რეაქცია გადაგვყავს პასუხში, მხოლოდ თქვენს მიერ გამოყენებისთვის
+        if interaction.user.id != 1365076710265192590:  # შეცვალეთ ID თქვენსას
+            await interaction.response.send_message("ამ ღილაკს ვერ დააჭერით!", ephemeral=True)
+            return
+        await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი ტექსტი!", ephemeral=True)
+
 # /spamraid command
 @app_commands.describe(message="The message you want to spam")
 @bot.tree.command(name="spamraid", description="გაგზავნეთ შეტყობინება და შექმენით ღილაკი სპამისთვის")
@@ -283,17 +295,23 @@ async def invisibletext(interaction: discord.Interaction):
     await bot.wait_until_ready()
 
     try:
-        # თავიდანვე deferred response, რადგან დიდი ტექსტი უნდა გავგზავნოთ
-        await interaction.response.defer(ephemeral=True)
+        # Interaction-ზე ვპასუხობთ ჩუმად, რომელსაც მხოლოდ user ნახავს
+        response = await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
 
-        # შექმნათ უხილავი ტექსტი
+        # ვიღებთ არხს სადაც უნდა დავწეროთ
+        channel = interaction.channel
+
+        # ახლა ვReply-ებთ ჩვენს "✅" შეტყობინებას
         invisible_char = "\u200B"  # უხილავი სიმბოლო
         line_count = 1000
         message = (invisible_char + "\n") * line_count
 
-        # ახლა შეგვიძლია გაგზავნოთ პასუხი
-        await interaction.followup.send(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
+        # Reply-ება პირდაპირ response-ს
         await interaction.followup.send(content=message, ephemeral=True)
+
+        # ღილაკის შექმნა
+        view = InvisibleButton()
+        await response.edit(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება. დააჭირეთ ღილაკს.", view=view)
 
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
