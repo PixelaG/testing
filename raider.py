@@ -277,6 +277,24 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
     except discord.HTTPException as e:
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
+@bot.tree.command(name="invisibletext", description="გაგზავნის უხილავ ტექსტს ჩატში რომ გაწმინდოს სივრცე")
+async def invisibletext(interaction: discord.Interaction):
+    await bot.wait_until_ready()
+
+    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
+    if not member:
+        return
+
+    invisible_char = "\u200B"  # Zero-width space
+    repeat_count = 2000  # Discord-ის ლიმიტია 2000 სიმბოლო
+
+    message = invisible_char * repeat_count
+
+    try:
+        await interaction.response.send_message(message, ephemeral=False)
+    except discord.HTTPException as e:
+        print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
+
 # /giveaccess command - ONLY FOR BOT OWNER
 @app_commands.describe(
     user="მომხმარებელი, რომელსაც უნდა მიეცეს წვდომა",
