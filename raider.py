@@ -222,7 +222,7 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
 )
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     try:
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         
         # ვადის დამუშავება
         if duration.endswith('d'):
@@ -239,24 +239,32 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         # როლის მინიჭება და MongoDB-ში შენახვა
         role = interaction.guild.get_role(ROLE_ID)
         if not role:
-            return await interaction.followup.send("❌ როლი ვერ მოიძებნა")
+            return await interaction.followup.send("❌ როლი ვერ მოიძებნა", ephemeral=True)
             
         await user.add_roles(role)
         
         # მონაცემების ჩაწერა MongoDB-ში
-        await access_roles_collection.insert_one({
+        await access_roles.insert_one({
             "user_id": user.id,
             "guild_id": interaction.guild.id,
             "role_id": role.id,
-            "expires_at": expires_at,
-            "assigned_by": interaction.user.id,
-            "assigned_at": datetime.utcnow()
+            "expires_at": expires_at
         })
         
         await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
+
+            # ლოგირება
+        await log_to_channel(
+            interaction.guild,
+            f"**მომხმარებელი:** {user.mention}\n"
+            f"**როლი:** {role.name}\n"
+            f"**ვადა:** {duration}\n"
+            f"**მინიჭებულია:** {interaction.user.mention}"
+        )
         
     except Exception as e:
-        await interaction.followup.send(f"❌ შეცდომა: {str(e)}")
+        error_msg = f"❌ შეცდომა: {str(e)}"
+        await interaction.followup.send(error_msg, ephemeral=True)
         print(f"Error in giveaccess: {e}")
 
 @tasks.loop(minutes=5)
