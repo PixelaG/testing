@@ -35,6 +35,7 @@ intents.messages = True
 intents.message_content = True
 intents.typing = False
 intents.presences = False
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
