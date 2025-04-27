@@ -285,20 +285,18 @@ async def invisibletext(interaction: discord.Interaction):
     try:
         # Interaction-ზე ვპასუხობთ ჩუმად, რომელსაც მხოლოდ user ნახავს
         response = await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
-    except discord.InteractionResponded:
-        pass
 
-    # ვიღებთ არხს სადაც უნდა დავწეროთ
-    channel = interaction.channel
+        # ვიღებთ არხს სადაც უნდა დავწეროთ
+        channel = interaction.channel
 
-    # ახლა ვReply-ებთ ჩვენს "✅" შეტყობინებას
-    invisible_char = "\u200B"  # უხილავი სიმბოლო
-    line_count = 1000
-    message = (invisible_char + "\n") * line_count
+        # ახლა ვReply-ებთ ჩვენს "✅" შეტყობინებას
+        invisible_char = "\u200B"  # უხილავი სიმბოლო
+        line_count = 1000
+        message = (invisible_char + "\n") * line_count
 
-    try:
-        # ბოტი Reply-ს გააკეთებს "✅" შეტყობინებაზე, რაც მხოლოდ შენ იკითხავ
-        await response.reply(content=message)
+        # Reply-ება პირდაპირ response-ს
+        await interaction.followup.send(content=message, ephemeral=True)
+
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
 
