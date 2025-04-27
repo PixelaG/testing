@@ -285,7 +285,7 @@ async def invisibletext(interaction: discord.Interaction):
 
     try:
         # Interaction-ზე ვპასუხობთ ჩუმად, რომელსაც მხოლოდ user ნახავს
-        await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
+        response = await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
 
         # ვიღებთ არხს სადაც უნდა დავწეროთ
         channel = interaction.channel
@@ -295,11 +295,16 @@ async def invisibletext(interaction: discord.Interaction):
         line_count = 1000
         message = (invisible_char + "\n") * line_count
 
-        # Reply-ება directly
+        # Reply-ება response-ს
+        await response.edit(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება. დააჭირეთ ღილაკს.")
+        
+        # დროებითი follow-up-ით
         await interaction.followup.send(content=message, ephemeral=False)
 
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
+    except Exception as e:
+        print(f"❌ ზოგადი შეცდომა: {e}")
 
 # /giveaccess command - ONLY FOR BOT OWNER
 @app_commands.describe(
