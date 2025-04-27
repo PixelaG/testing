@@ -69,8 +69,12 @@ async def send_embed(interaction, title, description, color=discord.Color(0x2f31
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message(embed=embed, ephemeral=True)
+    except discord.NotFound:
+        print("⚠ Interaction უკვე ამოიწურა ან გაუქმდა.")
+    except discord.HTTPException as e:
+        print(f"⚠ HTTP შეცდომა Embed-ის გაგზავნისას: {e}")
     except Exception as e:
-        print(f"Error sending embed: {e}")
+        print(f"⚠ მოულოდნელი შეცდომა: {e}")
 
 # Helper: Check permissions
 async def check_user_permissions(interaction, required_role_id: int, guild_id: int):
