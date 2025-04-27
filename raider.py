@@ -94,6 +94,14 @@ async def check_expired_roles():
             print(f"შეცდომა check_expired_roles-ში: {e}")
         
         await asyncio.sleep(60)
+        
+        try:
+            await message_sent.delete()
+        except discord.NotFound:
+            print("⚠️ არ მოიძებნა შეტყობინება, ვადა გასულია.")
+        except discord.HTTPException as e:
+            print(f"❌ HTTP შეცდომა: {e}")
+
 
 # Universal embed notification
 async def send_embed_notification(interaction, title, description, color=discord.Color(0x2f3136)):
