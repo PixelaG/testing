@@ -277,7 +277,7 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
     except discord.HTTPException as e:
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
-@bot.tree.command(name="invisibletext", description="გაგზავნის უხილავ ტექსტს ჩატში რომ გაწმინდოს სივრცე")
+@bot.tree.command(name="invisibletext", description="გააქრო ჩატი ერთი დიდი ცარიელი შეტყობინებით")
 async def invisibletext(interaction: discord.Interaction):
     await bot.wait_until_ready()
 
@@ -285,10 +285,11 @@ async def invisibletext(interaction: discord.Interaction):
     if not member:
         return
 
-    invisible_char = "\u200B"  # Zero-width space
-    repeat_count = 2000  # Discord-ის ლიმიტია 2000 სიმბოლო
+    invisible_char = "\u200B"  # უხილავი სიმბოლო
+    line_count = 2000  # რამდენი ხაზი გინდა
 
-    message = invisible_char * repeat_count
+    # ვქმნით ტექსტს: უხილავი სიმბოლო + ბევრი გამოტოვება
+    message = (invisible_char + "\n") * line_count
 
     try:
         await interaction.response.send_message(message, ephemeral=False)
