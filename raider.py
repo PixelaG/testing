@@ -210,13 +210,10 @@ class InvisibleButton(View):
     def __init__(self):
         super().__init__()
 
-    @discord.ui.button(label="Reply", style=discord.ButtonStyle.primary)
-    async def reply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # რეაქცია გადაგვყავს პასუხში, მხოლოდ თქვენს მიერ გამოყენებისთვის
-        if interaction.user.id != 1365076710265192590:  # შეცვალეთ ID თქვენსას
-            await interaction.response.send_message("ამ ღილაკს ვერ დააჭერით!", ephemeral=True)
-            return
-        await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი ტექსტი!", ephemeral=True)
+    @discord.ui.button(label="👁️ ნახვა", style=discord.ButtonStyle.green)
+    async def invisible_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # პასუხის გაგზავნა
+        await interaction.response.send_message("თქვენ დააჭირეთ ღილაკს!", ephemeral=True)
 
 # /spamraid command
 @app_commands.describe(message="The message you want to spam")
@@ -308,8 +305,8 @@ async def invisibletext(interaction: discord.Interaction):
         message = (invisible_char + "\n") * line_count
 
         # Reply-ება პირდაპირ response-ს
-        view = InvisibleButton()
-        await response.edit(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება. დააჭირეთ ღილაკს.", view=view)
+        view = InvisibleButton()  # ღილაკის დამატება
+        await interaction.followup.send(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება. დააჭირეთ ღილაკს.", view=view)
 
         # Send the invisible message
         await interaction.followup.send(content=message, ephemeral=True)
