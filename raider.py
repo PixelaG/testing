@@ -287,8 +287,8 @@ async def invisibletext(interaction: discord.Interaction):
         # Interaction-ზე ვპასუხობთ ჩუმად, რომელსაც მხოლოდ user ნახავს
         await interaction.response.send_message("✅ წარმატებით გაიგზავნა უხილავი შეტყობინება.", ephemeral=True)
 
-        # დაველოდოთ პატარა დრო
-        await asyncio.sleep(1)  # 1 წამი, რომ Discord-ს დრო ჰქონდეს პროცესის დასასრულებლად
+        # დაველოდოთ ცოტა დრო, რომ interaction-ის ვადა არ გასულიყო
+        await asyncio.sleep(1)
 
         # ახლა ვReply-ებთ ჩვენს "✅" შეტყობინებას
         invisible_char = "\u200B"  # უხილავი სიმბოლო
@@ -296,7 +296,12 @@ async def invisibletext(interaction: discord.Interaction):
         message = (invisible_char + "\n") * line_count
 
         # Reply-ება "followup"-ით
-        await interaction.followup.send(content=message, ephemeral=False)
+        message_sent = await interaction.followup.send(content=message, ephemeral=False)
+
+        # დაველოდოთ 5 წამი და შემდეგ წავშალოთ
+        await asyncio.sleep(5)
+        await message_sent.delete()
+
 
     except Exception as e:
         print(f"❌ ზოგადი შეცდომა: {e}")
