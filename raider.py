@@ -300,10 +300,20 @@ async def invisibletext(interaction: discord.Interaction):
 
         # დაველოდოთ 5 წამი და შემდეგ წავშალოთ
         await asyncio.sleep(5)
-        await message_sent.delete()
 
+        # მხოლოდ მაშინ წავშლით, თუ message_sent ისევ არსებობს
+        try:
+            await message_sent.delete()
+        except discord.NotFound:
+            print("⚠️ არ მოიძებნა შეტყობინება, ვადა გასულია.")
+        except discord.HTTPException as e:
+            print(f"❌ HTTP შეცდომა: {e}")
 
+    except discord.InteractionNotFound as e:
+        # თუ Interaction აღარ არსებობს, ჩავწეროთ ან გადავაფაროთ
+        print("Interaction აღარ არსებობს")
     except Exception as e:
+        # ყველა სხვა შეცდომის დაფარვა
         print(f"❌ ზოგადი შეცდომა: {e}")
 
 # /giveaccess command - ONLY FOR BOT OWNER
