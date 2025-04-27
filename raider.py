@@ -60,6 +60,7 @@ async def log_to_channel(guild: discord.Guild, message: str):
                 description=message,
                 color=discord.Color.green()
             )
+            await channel.send(embed=embed)
 
 # Universal embed notification
 async def send_embed(interaction, title, description, color=discord.Color(0x2f3136)):
@@ -80,13 +81,13 @@ async def send_embed(interaction, title, description, color=discord.Color(0x2f31
 async def check_user_permissions(interaction, required_role_id: int, guild_id: int):
     home_guild = discord.utils.get(bot.guilds, id=guild_id)
     if not home_guild:
-        await send_embed_notification(interaction, "⚠️ მთავარი სერვერი არ არის ნაპოვნი", "⌚️ სცადეთ მოგვიანებით.")
+        await send_embed(interaction, "⚠️ მთავარი სერვერი არ არის ნაპოვნი", "⌚️ სცადეთ მოგვიანებით.")
         return None
 
     try:
         member = await home_guild.fetch_member(interaction.user.id)
     except discord.NotFound:
-        await send_embed_notification(
+        await send_embed(
             interaction,
             "⛔️ თქვენ არ ხართ მთავარ სერვერზე",
             "🌐 შემოგვიერთდით ახლავე [Server](https://discord.gg/byScSM6T9Q)"
@@ -94,7 +95,7 @@ async def check_user_permissions(interaction, required_role_id: int, guild_id: i
         return None
 
     if not any(role.id == required_role_id for role in member.roles):
-        await send_embed_notification(
+        await send_embed(
             interaction,
             "🚫 თქვენ არ შეგიძლიათ ამ ფუნქციის გამოყენება",
             "💸 შესაძენად ეწვიეთ სერვერს [Server](https://discord.gg/byScSM6T9Q) 💸"
@@ -212,7 +213,7 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
 
     if now - last_used < seconds:
         remaining = int(seconds - (now - last_used))
-        await send_embed_notification(interaction, "⏱ Cooldown აქტიურია", f"გთხოვთ დაელოდოთ {remaining} წამს ბრძანების ხელახლა გამოსაყენებლად.")
+        await send_embed(interaction, "⏱ Cooldown აქტიურია", f"გთხოვთ დაელოდოთ {remaining} წამს ბრძანების ხელახლა გამოსაყენებლად.")
         return
 
     member = await check_user_permissions(interaction, ROLE_ID, GUILD_ID)
@@ -222,11 +223,11 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
     try:
         await user.send(message)
         cooldowns[user_id] = now
-        await send_embed_notification(interaction, "✅ შეტყობინება გაგზავნილია", f"{user.mention}-ს მივწერეთ პირადში.")
+        await send_embed(interaction, "✅ შეტყობინება გაგზავნილია", f"{user.mention}-ს მივწერეთ პირადში.")
     except discord.Forbidden:
-        await send_embed_notification(interaction, "🚫 ვერ მოხერხდა გაგზავნა", f"{user.mention} არ იღებს პირად შეტყობინებებს.")
+        await send_embed(interaction, "🚫 ვერ მოხერხდა გაგზავნა", f"{user.mention} არ იღებს პირად შეტყობინებებს.")
     except discord.HTTPException as e:
-        await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
+        await send_embed(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
 # /giveacces Command
 @bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი")
