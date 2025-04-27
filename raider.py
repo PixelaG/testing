@@ -205,24 +205,31 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
     except discord.HTTPException as e:
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
-# /giveaccess command
+# /giveaccess command - ONLY FOR BOT OWNER
 @app_commands.describe(
     user="მომხმარებელი, რომელსაც უნდა მიეცეს წვდომა",
     duration="დრო (მაგ. 1d, 5h, 30m)"
 )
-@bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი წვდომა მომხმარებელს")
+@bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი წვდომა მომხმარებელს (მხოლოდ მფლობელისთვის)")
 async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
     await bot.wait_until_ready()
     
-    # ძირითადი სერვერი და როლი
+    # მფლობელის ID
+    BOT_OWNER_ID = 475160980280705024
+    
+    # შემოწმება: არის თუ არა მფლობელი
+    if interaction.user.id != BOT_OWNER_ID:
+        await send_embed_notification(
+            interaction,
+            "⛔️ უარყოფილი წვდომა",
+            "მხოლოდ ბოტის მფლობელს შეუძლია ამ ბრძანების გამოყენება!"
+        )
+        return
+    
+    # სერვერის, როლის და ლოგის არხის ID-ები
     GUILD_ID = 1005186618031869952
     ROLE_ID = 1365076710265192590
     LOG_CHANNEL_ID = 1365381000619622460
-    
-    # უფლებების შემოწმება
-    admin = await check_user_permissions(interaction, ROLE_ID, GUILD_ID)
-    if not admin:
-        return
     
     try:
         # დროის პარსინგი (1d, 5h, 30m)
@@ -247,19 +254,17 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
             
         expiry_time = datetime.utcnow() + delta
 
-        # მიზნის სერვერის მოძებნა
+        # სერვერისა და როლის მოძებნა
         target_guild = bot.get_guild(GUILD_ID)
         if not target_guild:
             await send_embed_notification(interaction, "❌ სერვერი არ მოიძებნა", "დარწმუნდით, რომ ბოტი სერვერზეა")
             return
         
-        # მომხმარებლის მოძებნა სერვერზე
         target_member = target_guild.get_member(user.id)
         if not target_member:
             await send_embed_notification(interaction, "❌ მომხმარებელი არ მოიძებნა", f"{user.mention} არ არის მთავარ სერვერზე")
             return
         
-        # როლის მოძებნა
         access_role = target_guild.get_role(ROLE_ID)
         if not access_role:
             await send_embed_notification(interaction, "❌ როლი არ მოიძებნა", "დარწმუნდით, რომ როლი არსებობს")
@@ -268,17 +273,17 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         # როლის მინიჭება
         await target_member.add_roles(access_role)
         
-        # ლოგის არხში შეტყობინების გაგზავნა
+        # ლოგირება
         log_channel = target_guild.get_channel(LOG_CHANNEL_ID)
         if log_channel:
             await log_channel.send(
                 f"🎟 {target_member.mention} ({target_member.display_name}) - მიენიჭა {access_role.name} როლი\n"
                 f"⏳ ვადა: {duration}\n"
                 f"🕒 ვადის გასვლის დრო: <t:{int(expiry_time.timestamp())}:F>\n"
-                f"👤 მინიჭებულია: {interaction.user.mention}"
+                f"👤 მინიჭებულია: {interaction.user.mention} (Owner)"
             )
         
-        # პასუხი მომხმარებელს
+        # პასუხი მომხმარებელს (მფლობელს)
         await send_embed_notification(
             interaction,
             "✅ წვდომა მინიჭებულია",
@@ -286,21 +291,16 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
             f"ვადა გაუვა: <t:{int(expiry_time.timestamp())}:R>"
         )
         
-        # დროის გასვლის მოლოდინი და როლის ამოღება
+        # დროის გასვლის შემდეგ როლის ამოღება
         await asyncio.sleep(delta.total_seconds())
         
         if access_role in target_member.roles:
             await target_member.remove_roles(access_role, reason="ვადის გასვლა")
-            
             if log_channel:
-                await log_channel.send(
-                    f"⏰ {target_member.mention}-ს ამოეღო {access_role.name} როლი (ვადა გაუვიდა)"
-                )
+                await log_channel.send(f"⏰ {target_member.mention}-ს ამოეღო {access_role.name} როლი (ვადა გაუვიდა)")
     
     except discord.Forbidden:
         await send_embed_notification(interaction, "❌ უფლებები არ არის", "ბოტს არ აქვს საკმარისი უფლებები")
-    except discord.HTTPException as e:
-        await send_embed_notification(interaction, "❌ შეცდომა", f"ტექნიკური შეცდომა: {e}")
     except (ValueError, IndexError):
         await send_embed_notification(interaction, "❌ არასწორი დრო", "გამოიყენეთ მაგ. 1d, 5h, 30m")
 
