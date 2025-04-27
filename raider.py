@@ -1,14 +1,11 @@
 import os
 import time
-import asyncio
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord import app_commands
 from flask import Flask
 from threading import Thread
 from colorama import init, Fore
-from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime, timedelta
 
 # Colorama init
 init(autoreset=True)
@@ -30,56 +27,27 @@ def keep_alive():
 
 keep_alive()
 
-# MongoDB setup
-MONGO_URI = os.getenv("MONGO_URI")  # render-ზე MONGO_URI უნდა იყოს დამატებული env-ში
-mongo_client = AsyncIOMotorClient(MONGO_URI)
-db = mongo_client["discord_bot"]
-access_roles_collection = db["access_roles"]
-
 # Discord bot setup
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 intents.typing = False
 intents.presences = False
-intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-OWNER_ID = 475160980280705024
-ROLE_ID = 1365076710265192590
-GUILD_ID = 1005186618031869952
-LOG_CHANNEL_ID = 1365381000619622460
-
-async def log_to_channel(guild: discord.Guild, message: str):
-    try:
-        channel = guild.get_channel(LOG_CHANNEL_ID)
-        if channel:
-            embed = discord.Embed(
-                title="როლის მინიჭება",
-                description=message,
-                color=discord.Color.green()
-            )
-            await channel.send(embed=embed)
-
 # Universal embed notification
 async def send_embed_notification(interaction, title, description, color=discord.Color(0x2f3136)):
-    """Embed-ის გაგზავნის უნივერსალური ფუნქცია"""
+    embed = discord.Embed(title=title, description=description, color=color)
     try:
-        embed = discord.Embed(title=title, description=description, color=color)
-        
-        # შეამოწმეთ interaction-ის სტატუსი
         if interaction.response.is_done():
             await interaction.followup.send(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message(embed=embed, ephemeral=True)
-            
     except discord.NotFound:
-        print(f"⚠ Interaction not found (სერვერი: {interaction.guild.name}, მომხმარებელი: {interaction.user})")
+        print("⚠ Interaction უკვე ამოიწურა ან გაუქმდა.")
     except discord.HTTPException as e:
-        print(f"⚠ HTTP Error (Status: {e.status}): {e.text}")
-    except Exception as e:
-        print(f"⚠ Unexpected error in send_embed_notification: {type(e).__name__}: {e}")
+        print(f"⚠ HTTP შეცდომა Embed-ის გაგზავნისას: {e}")
 
 # Helper: Check permissions
 async def check_user_permissions(interaction, required_role_id: int, guild_id: int):
@@ -169,7 +137,7 @@ class SingleUseButton(discord.ui.View):
 async def spamraid(interaction: discord.Interaction, message: str):
     await bot.wait_until_ready()
 
-    member = await check_user_permissions(interaction, ROLE_ID, GUILD_ID)
+    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
     if not member:
         return
 
@@ -188,7 +156,7 @@ async def spamraid(interaction: discord.Interaction, message: str):
 async def onlyone(interaction: discord.Interaction, message: str):
     await bot.wait_until_ready()
 
-    member = await check_user_permissions(interaction, ROLE_ID, GUILD_ID)
+    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
     if not member:
         return
 
@@ -201,7 +169,7 @@ async def onlyone(interaction: discord.Interaction, message: str):
     except discord.NotFound:
         print("⚠ Interaction ვადა გასულია (onlyone).")
 
-# /dmmsg command
+# /dmmsg command with cooldown
 @bot.tree.command(name="dmmsg", description="გაგზავნე DM არჩეულ მომხმარებელზე")
 @app_commands.describe(
     user="მომხმარებელი, რომელსაც გსურს პირადში მიწერა",
@@ -210,6 +178,7 @@ async def onlyone(interaction: discord.Interaction, message: str):
 async def dmmsg(interaction: discord.Interaction, user: discord.User, message: str):
     await bot.wait_until_ready()
 
+    # Cooldown შემოწმება
     seconds = 300  # 5 წუთი
     user_id = interaction.user.id
     now = time.time()
@@ -220,100 +189,30 @@ async def dmmsg(interaction: discord.Interaction, user: discord.User, message: s
         await send_embed_notification(interaction, "⏱ Cooldown აქტიურია", f"გთხოვთ დაელოდოთ {remaining} წამს ბრძანების ხელახლა გამოსაყენებლად.")
         return
 
-    member = await check_user_permissions(interaction, ROLE_ID, GUILD_ID)
+    # უფლებების შემოწმება
+    member = await check_user_permissions(interaction, 1365076710265192590, 1005186618031869952)
     if not member:
         return
 
     try:
         await user.send(message)
-        cooldowns[user_id] = now
+        cooldowns[user_id] = now  # ✅ მხოლოდ წარმატების შემთხვევაში ვანახლებთ cooldown-ს
         await send_embed_notification(interaction, "✅ შეტყობინება გაგზავნილია", f"{user.mention}-ს მივწერეთ პირადში.")
     except discord.Forbidden:
         await send_embed_notification(interaction, "🚫 ვერ მოხერხდა გაგზავნა", f"{user.mention} არ იღებს პირად შეტყობინებებს.")
     except discord.HTTPException as e:
         await send_embed_notification(interaction, "❌ შეცდომა შეტყობინების გაგზავნისას", f"დეტალები: {e}")
 
-# /giveacces Command
-@bot.tree.command(name="giveaccess", description="მიანიჭეთ დროებითი როლი")
-@app_commands.describe(
-    user="მომხმარებელი",
-    duration="ვადა (მაგ. 1d, 12h, 30m)"
-)
-async def giveaccess(interaction: discord.Interaction, user: discord.Member, duration: str):
-    try:
-        await interaction.response.defer()
-        
-        role = interaction.guild.get_role(ROLE_ID)
-        if not role:
-            return await interaction.followup.send("❌ როლი ვერ მოიძებნა", ephemeral=True)
-        
-        # ვადის დამუშავება
-        if duration.endswith('d'):
-            hours = int(duration[:-1]) * 24
-        elif duration.endswith('h'):
-            hours = int(duration[:-1])
-        elif duration.endswith('m'):
-            hours = int(duration[:-1]) / 60
-        else:
-            return await interaction.followup.send("❌ არასწორი ფორმატი. გამოიყენეთ: 1d, 12h ან 30m")
-        
-        expires_at = datetime.utcnow() + timedelta(hours=hours)
-        
-        await access_roles_collection.insert_one({
-            "user_id": user.id,
-            "guild_id": interaction.guild.id,
-            "role_id": ROLE_ID,
-            "expires_at": expires_at,
-            "assigned_at": datetime.utcnow()
-        })
-        
-        await user.add_roles(role)
-        await interaction.followup.send(f"✅ {user.mention}-ს მიენიჭა {role.name} {duration}-ით")
-
-            # ლოგირება
-        await log_to_channel(
-            interaction.guild,
-            f"**მომხმარებელი:** {user.mention}\n"
-            f"**როლი:** {role.name}\n"
-            f"**ვადა:** {duration}\n"
-            f"**მინიჭებულია:** {interaction.user.mention}"
-        )
-
-@tasks.loop(minutes=5)
-async def check_expired_roles():
-    try:
-        now = datetime.utcnow()
-        async for entry in access_roles_collection.find({"expires_at": {"$lte": now}}):
-            guild = bot.get_guild(entry["guild_id"])
-            if not guild:
-                continue
-
-            user = guild.get_member(entry["user_id"])
-            if not user:
-                continue
-
-            role = guild.get_role(entry["role_id"])
-            if role:
-                try:
-                    await user.remove_roles(role)
-                    await access_roles_collection.delete_one({"_id": entry["_id"]})
-                    print(f"Removed role from {user.name}")
-                except Exception as e:
-                    print(f"Error removing role: {e}")
-    except Exception as e:
-        print(f"Critical error in check_expired_roles: {e}")
-
 # Bot ready
 @bot.event
 async def on_ready():
-    print(f"ბოტი მზადაა: {bot.user.name}")
+    print(f"✅ Bot connected as {bot.user}")
+    await bot.change_presence(status=discord.Status.invisible)
     try:
-        # ავტომატური სინქრონიზაცია აღარ არის საჭირო
-        print("ბრძანებები მზადაა გამოსაყენებლად")
+        await bot.tree.sync()
+        print(Fore.GREEN + "✅ Slash commands synced successfully.")
     except Exception as e:
-        print(f"შეცდომა: {e}")
-    
-    check_expired_roles.start()
+        print(Fore.RED + f"❌ Failed to sync commands: {e}")
 
 # Run bot
 if __name__ == "__main__":
