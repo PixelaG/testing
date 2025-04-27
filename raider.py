@@ -308,11 +308,11 @@ async def invisibletext(interaction: discord.Interaction):
         message = (invisible_char + "\n") * line_count
 
         # Reply-ება პირდაპირ response-ს
-        await interaction.followup.send(content=message, ephemeral=True)
-
-        # ღილაკის შექმნა
         view = InvisibleButton()
         await response.edit(content="✅ წარმატებით გაიგზავნა უხილავი შეტყობინება. დააჭირეთ ღილაკს.", view=view)
+
+        # Send the invisible message
+        await interaction.followup.send(content=message, ephemeral=True)
 
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
