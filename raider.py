@@ -31,7 +31,7 @@ def keep_alive():
 keep_alive()
 
 # MongoDB კავშირი
-client = MongoClient(MONGO_URI)
+client = MongoClient(mongo_uri)
 db = client["discord_bot"]  # MongoDB მონაცემთა ბაზა
 access_entries = db["access_entries"]  # MongoDB კოლექცია
 
