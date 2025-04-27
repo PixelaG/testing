@@ -286,13 +286,18 @@ async def invisibletext(interaction: discord.Interaction):
     if not member:
         return
 
-    invisible_char = "\u200B"  # უხილავი სიმბოლო
-    line_count = 1000  # 1000 ხაზი მაქსიმუმ, რომ არ გადავჭარბოთ
+    invisible_char = "\u200B"
+    line_count = 1000
 
     message = (invisible_char + "\n") * line_count
 
     try:
-        await interaction.response.send_message(message, ephemeral=False)
+        # უპასუხეთ მომხმარებელს ჩუმად (ephemeral=True)
+        await interaction.response.send_message("✅ მზადაა!", ephemeral=True)
+
+        # ბოტმა გამოაგზავნოს უხილავი ტექსტი საჯაროდ
+        await interaction.channel.send(message)
+
     except discord.HTTPException as e:
         print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
 
