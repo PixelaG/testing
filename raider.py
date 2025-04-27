@@ -299,7 +299,8 @@ async def invisibletext(interaction: discord.Interaction):
         await interaction.followup.send(content=message, ephemeral=False)
 
     except discord.HTTPException as e:
-        print(f"❌ შეცდომა უხილავი ტექსტის გაგზავნისას: {e}")
+        pass 
+
     except Exception as e:
         print(f"❌ ზოგადი შეცდომა: {e}")
 
