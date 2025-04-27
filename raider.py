@@ -244,7 +244,7 @@ async def giveaccess(interaction: discord.Interaction, user: discord.Member, dur
         await user.add_roles(role)
         
         # მონაცემების ჩაწერა MongoDB-ში
-        await access_roles.insert_one({
+        await access_roles_collection.insert_one({
             "user_id": user.id,
             "guild_id": interaction.guild.id,
             "role_id": role.id,
